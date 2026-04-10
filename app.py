@@ -1,45 +1,22 @@
 import streamlit as st
 import pandas as pd
-import os
 import io
-import tkinter as tk
-from tkinter import filedialog
+import os
 
 st.title("Concaténation de fichiers CSV depuis un dossier")
 
-def selectionner_dossier():
-    root = tk.Tk()
-    root.withdraw()
-    root.wm_attributes('-topmost', 1)
-    dossier = filedialog.askdirectory(title="Sélectionnez un dossier")
-    root.destroy()
-    return dossier
+# Champ pour saisir le chemin du dossier
+dossier_path = st.text_input("Chemin du dossier contenant les CSV :")
 
-if "dossier" not in st.session_state:
-    st.session_state.dossier = ""
-
-col1, col2 = st.columns([3, 1])
-
-with col2:
-    if st.button("📁 Parcourir..."):
-        dossier = selectionner_dossier()
-        if dossier:
-            st.session_state.dossier = dossier
-
-with col1:
-    st.text_input("Dossier sélectionné :", value=st.session_state.dossier, disabled=True)
-
-if st.session_state.dossier and st.button("Concaténer les fichiers"):
-    dossier = st.session_state.dossier
-
+if dossier_path and st.button("Concaténer les fichiers"):
     fichiers_csv = [
         os.path.join(root, f)
-        for root, dirs, files in os.walk(dossier)
+        for root, dirs, files in os.walk(dossier_path)
         for f in files if f.endswith('.csv')
     ]
 
     if not fichiers_csv:
-        st.warning("Aucun fichier CSV trouvé dans le dossier.")
+        st.warning("Aucun fichier CSV trouvé.")
     else:
         total = len(fichiers_csv)
         progress_bar = st.progress(0)
@@ -76,5 +53,3 @@ if st.session_state.dossier and st.button("Concaténer les fichiers"):
                 file_name="fichier_concatene.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
-        else:
-            st.warning("Aucun fichier valide chargé.")
