@@ -7,6 +7,37 @@ import zipfile
 import pandas as pd
 import streamlit as st
 
+DESIRED_COLUMNS = [
+    '?"#"',
+    "Apprenant ID",
+    "Nom complet",
+    "Date",
+    "Jour",
+    "Heure",
+    "Prestataire",
+    "Bénéficiaire",
+    "Inspecteur",
+    "Classe",
+    "ENQ",
+    "Présence",
+    "Statut",
+    "Moyen",
+    "Genre",
+    "Âge",
+    "Fonction",
+    "Qualif.",
+    "Exp.",
+    "Type Form.",
+    "Fenêtre",
+    "Ville",
+    "Arrondissement",
+    "Département",
+    "Région",
+    "Lieux",
+    "Téléphone",
+    "Cohorte",
+]
+
 st.title("Concaténation CSV depuis un dossier (1 upload)")
 st.caption("Upload un seul fichier ZIP du dossier source.")
 st.caption(
@@ -23,12 +54,16 @@ uploaded_zip = st.file_uploader(
 
 def concat_and_export(dfs, total_fichiers):
     combined_df = pd.concat(dfs, ignore_index=True)
+    available_columns = [col for col in DESIRED_COLUMNS if col in combined_df.columns]
+    arranged_df = combined_df[available_columns]
+
     st.success(f"{total_fichiers} fichier(s) · {len(combined_df)} lignes · {len(combined_df.columns)} colonnes")
     st.dataframe(combined_df)
 
     buffer = io.BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         combined_df.to_excel(writer, index=False, sheet_name="Donnees")
+        arranged_df.to_excel(writer, index=False, sheet_name="Donnees_filtrees")
     buffer.seek(0)
 
     st.download_button(
