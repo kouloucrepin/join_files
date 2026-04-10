@@ -7,7 +7,8 @@ st.title("Concaténation de fichiers CSV depuis un dossier")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-st.caption(f"Dossier de base de l'application : {BASE_DIR}")
+st.caption("Mode recommandé en ligne : uploader les CSV directement.")
+st.caption(f"Dossier de base de l'application (optionnel) : {BASE_DIR}")
 
 # Champ pour saisir le chemin du dossier (absolu ou relatif à BASE_DIR)
 dossier_path = st.text_input(
@@ -78,7 +79,10 @@ if st.button("Concaténer les fichiers"):
             st.info(f"Dossier analysé : {dossier_resolu}")
 
             if not os.path.isdir(dossier_resolu):
-                st.error("Le dossier indiqué n'existe pas sur le serveur.")
+                st.warning(
+                    "Le dossier indiqué n'existe pas sur le serveur. "
+                    "Utilise l'upload de fichiers CSV ci-dessus."
+                )
             else:
                 fichiers_csv = [
                     os.path.join(root, f)
