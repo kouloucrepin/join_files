@@ -38,6 +38,9 @@ DESIRED_COLUMNS = [
     "Cohorte",
 ]
 
+# Un import correct doit avoir plus de 5 colonnes ; sinon le separateur est probablement faux.
+MIN_CSV_COLUMNS = 6
+
 st.title("Concaténation CSV depuis un dossier (1 upload)")
 st.caption("Upload un seul fichier ZIP du dossier source.")
 st.caption(
@@ -63,7 +66,13 @@ def concat_and_export(dfs, total_fichiers):
     buffer = io.BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         combined_df.to_excel(writer, index=False, sheet_name="Donnees")
-        arranged_df.to_excel(writer, index=False, sheet_name="Donnees_filtrees")
+        try:
+            arranged_df.to_excel(writer, index=False, sheet_name="Donnees_filtrees")
+        except Exception as exc:
+            st.warning(
+                "La deuxieme feuille (Donnees_filtrees) n'a pas pu etre ecrite ; "
+                f"seule la feuille Donnees est dans le fichier. Detail : {exc}"
+            )
     buffer.seek(0)
 
     st.download_button(
@@ -71,6 +80,42 @@ def concat_and_export(dfs, total_fichiers):
         data=buffer,
         file_name="fichier_concatene.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+def _read_one_csv(chemin):
+    """Lit un CSV avec separateur ; ou , (et encodages courants).
+
+    Chaque tentative n'est retenue que si le tableau a plus de 5 colonnes,
+    sinon on essaie un autre separateur / encodage.
+    """
+    last_error = None
+    for encoding in ("utf-8-sig", "latin1", "cp1252"):
+        for sep in (";", ","):
+            try:
+                df = pd.read_csv(chemin, encoding=encoding, sep=sep)
+                if len(df.columns) >= MIN_CSV_COLUMNS:
+                    return df
+                last_error = ValueError(
+                    f"Separateur {sep!r} + {encoding}: seulement {len(df.columns)} colonne(s) "
+                    f"(minimum {MIN_CSV_COLUMNS} attendu)."
+                )
+            except Exception as e:
+                last_error = e
+        try:
+            df = pd.read_csv(chemin, encoding=encoding, sep=None, engine="python")
+            if len(df.columns) >= MIN_CSV_COLUMNS:
+                return df
+            last_error = ValueError(
+                f"Detection auto + {encoding}: seulement {len(df.columns)} colonne(s) "
+                f"(minimum {MIN_CSV_COLUMNS} attendu)."
+            )
+        except Exception as e:
+            last_error = e
+    if last_error is not None:
+        raise last_error
+    raise ValueError(
+        f"Aucune lecture valide : besoin d'au moins {MIN_CSV_COLUMNS} colonnes apres import."
     )
 
 
@@ -83,7 +128,7 @@ def read_csv_files(csv_paths):
     for i, chemin in enumerate(csv_paths):
         nom = os.path.basename(chemin)
         try:
-            df = pd.read_csv(chemin, encoding="latin1", sep=";")
+            df = _read_one_csv(chemin)
             dfs.append(df)
         except Exception as e:
             st.error(f"Erreur - {nom} : {e}")
