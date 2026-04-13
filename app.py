@@ -55,6 +55,40 @@ uploaded_zip = st.file_uploader(
 )
 
 
+def build_classe_cohorte_respecte(source_df):
+    work_dc = source_df.copy()
+    work_dc.columns = (
+        work_dc.columns.astype(str)
+        .str.replace("\ufeff", "", regex=False)
+        .str.strip()
+    )
+
+    id_col = "Apprenant ID"
+    date_col = "Date"
+    jour_col = "Jour"
+    classe_col = "Classe"
+    classe_orig_col = "Classe Origine"
+
+    expected = [id_col, date_col, jour_col, classe_col, classe_orig_col]
+    missing = [c for c in expected if c not in work_dc.columns]
+    if missing:
+        raise KeyError(
+            f"Colonnes manquantes: {missing}. Colonnes disponibles: {list(work_dc.columns)}"
+        )
+
+    work_dc[date_col] = pd.to_datetime(work_dc[date_col], errors="coerce")
+    for c in [id_col, jour_col, classe_col, classe_orig_col]:
+        work_dc[c] = work_dc[c].astype(str).str.strip()
+
+    group_cols = [classe_col, date_col, jour_col]
+    is_mismatch = work_dc[classe_col] != work_dc[classe_orig_col]
+    bad_groups = set(map(tuple, work_dc.loc[is_mismatch, group_cols].to_numpy()))
+
+    to_remove_dc = work_dc[group_cols].apply(tuple, axis=1).isin(bad_groups)
+    data_compilee_filtre = work_dc.loc[~to_remove_dc].copy()
+    return data_compilee_filtre, to_remove_dc
+
+
 def concat_and_export(dfs, total_fichiers):
     combined_df = pd.concat(dfs, ignore_index=True)
     available_columns = [col for col in DESIRED_COLUMNS if col in combined_df.columns]
@@ -72,6 +106,22 @@ def concat_and_export(dfs, total_fichiers):
             st.warning(
                 "La deuxieme feuille (Donnees_filtrees) n'a pas pu etre ecrite ; "
                 f"seule la feuille Donnees est dans le fichier. Detail : {exc}"
+            )
+        try:
+            data_compilee_filtre, to_remove_dc = build_classe_cohorte_respecte(combined_df)
+            data_compilee_filtre.to_excel(
+                writer, index=False, sheet_name="classe cohorte respecte"
+            )
+            st.info(
+                "Feuille 'classe cohorte respecte' ajoutee : "
+                f"{len(data_compilee_filtre)} lignes conservees / "
+                f"{len(combined_df)} initiales "
+                f"({int(to_remove_dc.sum())} supprimees)."
+            )
+        except Exception as exc:
+            st.warning(
+                "La troisieme feuille (classe cohorte respecte) n'a pas pu etre ecrite. "
+                f"Detail : {exc}"
             )
     buffer.seek(0)
 
